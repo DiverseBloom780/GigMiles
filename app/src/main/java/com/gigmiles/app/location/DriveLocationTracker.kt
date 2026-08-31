@@ -9,7 +9,10 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.Priority
 
-class DriveLocationTracker(private val client: FusedLocationProviderClient) {
+class DriveLocationTracker(
+    private val client: FusedLocationProviderClient,
+    private val onMilesUpdated: (Double) -> Unit
+) {
     private var lastLocation: Location? = null
     var miles: Double = 0.0
         private set
@@ -19,7 +22,10 @@ class DriveLocationTracker(private val client: FusedLocationProviderClient) {
             result.locations.forEach { location ->
                 lastLocation?.let { previous ->
                     val distanceMeters = previous.distanceTo(location).toDouble()
-                    if (distanceMeters >= 5.0) miles += distanceMeters / 1609.344
+                    if (distanceMeters >= 5.0) {
+                        miles += distanceMeters / 1609.344
+                        onMilesUpdated(miles)
+                    }
                 }
                 lastLocation = location
             }
@@ -30,6 +36,7 @@ class DriveLocationTracker(private val client: FusedLocationProviderClient) {
     fun start() {
         lastLocation = null
         miles = 0.0
+        onMilesUpdated(0.0)
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5_000L)
             .setMinUpdateDistanceMeters(10f)
             .build()

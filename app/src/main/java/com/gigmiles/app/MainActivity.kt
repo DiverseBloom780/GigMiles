@@ -1,15 +1,23 @@
 package com.gigmiles.app
 
+import android.Manifest
 import android.os.Bundle
+import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
 import com.gigmiles.app.data.DriveRecord
+import com.gigmiles.app.location.DriveLocationTracker
+import com.google.android.gms.location.LocationServices
 
 enum class DeliveryApp { SPARK, DOORDASH }
 
@@ -28,13 +36,29 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GigMilesScreen() {
+    val context = LocalContext.current
     val viewModel: GigMilesViewModel = viewModel()
     val savedDrives by viewModel.drives.collectAsState()
     var selectedApp by remember { mutableStateOf(DeliveryApp.SPARK) }
     var tracking by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
+    var liveMiles by remember { mutableDoubleStateOf(0.0) }
     var miles by remember { mutableStateOf("0.0") }
     var earnings by remember { mutableStateOf(Earnings()) }
+    val locationTracker = remember {
+        DriveLocationTracker(LocationServices.getFusedLocationProviderClient(context)) { liveMiles = it }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            startedAt = System.currentTimeMillis()
+            liveMiles = 0.0
+            locationTracker.start()
+            tracking = true
+        }
+    }
 
     MaterialTheme {
         Scaffold(topBar = { TopAppBar(title = { Text("GigMiles") }) }) { padding ->
@@ -46,11 +70,26 @@ fun GigMilesScreen() {
                     FilterChip(selectedApp == DeliveryApp.DOORDASH, { selectedApp = DeliveryApp.DOORDASH }, label = { Text("DoorDash") })
                 }
                 Button(onClick = {
-                    tracking = !tracking
-                    if (tracking) startedAt = System.currentTimeMillis()
+                    if (tracking) {
+                        locationTracker.stop()
+                        miles = "%.2f".format(liveMiles)
+                        tracking = false
+                    } else {
+                        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        if (fine || coarse) {
+                            startedAt = System.currentTimeMillis()
+                            liveMiles = 0.0
+                            locationTracker.start()
+                            tracking = true
+                        } else {
+                            locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                        }
+                    }
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text(if (tracking) "End Drive" else "Start Drive")
                 }
+                if (tracking) Text("GPS miles: ${"%.2f".format(liveMiles)}")
                 if (!tracking) {
                     OutlinedTextField(miles, { miles = it }, label = { Text("Miles driven") }, modifier = Modifier.fillMaxWidth())
                     if (selectedApp == DeliveryApp.SPARK) {
