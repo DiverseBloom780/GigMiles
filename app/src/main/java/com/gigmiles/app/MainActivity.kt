@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GigMilesScreen() {
     val viewModel: GigMilesViewModel = viewModel()

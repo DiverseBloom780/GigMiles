@@ -37,8 +37,8 @@ data class ExpenseRecord(
 
 @Dao
 interface GigMilesDao {
-    @Insert suspend fun insertDrive(record: DriveRecord): Long
-    @Insert suspend fun insertExpense(record: ExpenseRecord): Long
+    @Insert suspend fun insertDrive(record: DriveRecord)
+    @Insert suspend fun insertExpense(record: ExpenseRecord)
     @Query("SELECT * FROM drive_records ORDER BY startedAt DESC")
     fun observeDrives(): Flow<List<DriveRecord>>
     @Query("SELECT * FROM expenses ORDER BY date DESC")
