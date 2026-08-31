@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GigMilesScreen() {
     val viewModel: GigMilesViewModel = viewModel()
+    val savedDrives by viewModel.drives.collectAsState()
     var selectedApp by remember { mutableStateOf(DeliveryApp.SPARK) }
     var tracking by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
@@ -39,6 +40,7 @@ fun GigMilesScreen() {
         Scaffold(topBar = { TopAppBar(title = { Text("GigMiles") }) }) { padding ->
             Column(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Track a drive", style = MaterialTheme.typography.headlineSmall)
+                SummaryRow(savedDrives)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selectedApp == DeliveryApp.SPARK, { selectedApp = DeliveryApp.SPARK }, label = { Text("Spark") })
                     FilterChip(selectedApp == DeliveryApp.DOORDASH, { selectedApp = DeliveryApp.DOORDASH }, label = { Text("DoorDash") })
@@ -77,15 +79,40 @@ fun GigMilesScreen() {
                         )
                         miles = "0.0"
                         earnings = Earnings()
-                    }, modifier = Modifier.fillMaxWidth()) {
+                        startedAt = 0L
+                    }, enabled = startedAt != 0L, modifier = Modifier.fillMaxWidth()) {
                         Text("Save Drive")
                     }
                 }
-                Text("Historical entries and tax exports are next in the build.", style = MaterialTheme.typography.bodySmall)
+                Text("Saved drives: ${savedDrives.size}", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
 }
+
+@Composable
+private fun SummaryRow(drives: List<DriveRecord>) {
+    val spark = drives.filter { it.app == "Spark" }
+    val doorDash = drives.filter { it.app == "DoorDash" }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        SummaryCard("Spark", spark.sumOf { it.miles }, spark.sumOf { it.totalPay() }, Modifier.weight(1f))
+        SummaryCard("DoorDash", doorDash.sumOf { it.miles }, doorDash.sumOf { it.totalPay() }, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun SummaryCard(app: String, miles: Double, pay: Double, modifier: Modifier = Modifier) {
+    Card(modifier) {
+        Column(Modifier.padding(12.dp)) {
+            Text(app, style = MaterialTheme.typography.titleMedium)
+            Text("${"%.1f".format(miles)} mi")
+            Text("$${"%.2f".format(pay)}")
+        }
+    }
+}
+
+private fun DriveRecord.totalPay(): Double =
+    basePay + customerTips + boost + incentives + appPay
 
 @Composable
 private fun MoneyField(label: String, onValueChange: (String) -> Unit) {
