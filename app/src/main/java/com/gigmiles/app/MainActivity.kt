@@ -44,6 +44,7 @@ fun GigMilesScreen() {
     val savedDrives by viewModel.drives.collectAsState()
     var selectedApp by remember { mutableStateOf(DeliveryApp.SPARK) }
     var activeTab by remember { mutableStateOf(AppTab.TRACK) }
+    var destination by remember { mutableStateOf("") }
     var tracking by remember { mutableStateOf(false) }
     var showMap by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
@@ -90,6 +91,14 @@ fun GigMilesScreen() {
                 SummaryRow(savedDrives)
                 HorizontalDivider()
                 Text("New drive", style = MaterialTheme.typography.titleLarge)
+                OutlinedTextField(
+                    value = destination,
+                    onValueChange = { destination = it },
+                    label = { Text("Delivery address") },
+                    placeholder = { Text("Enter or paste destination") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selectedApp == DeliveryApp.SPARK, { selectedApp = DeliveryApp.SPARK }, label = { Text("Spark") })
                     FilterChip(selectedApp == DeliveryApp.DOORDASH, { selectedApp = DeliveryApp.DOORDASH }, label = { Text("DoorDash") })
@@ -111,8 +120,8 @@ fun GigMilesScreen() {
                             locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                         }
                     }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (tracking) "End Drive" else "Start Drive")
+                }, enabled = tracking || destination.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                    Text(if (tracking) "End Drive" else "Start Navigation")
                 }
                 if (tracking) Text("GPS miles: ${"%.2f".format(liveMiles)}")
                 if (!tracking) {
@@ -144,8 +153,9 @@ fun GigMilesScreen() {
                         )
                         miles = "0.0"
                         earnings = Earnings()
+                        destination = ""
                         startedAt = 0L
-                    }, enabled = startedAt != 0L, modifier = Modifier.fillMaxWidth()) {
+                    }, enabled = startedAt != 0L && destination.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
                         Text("Save Drive")
                     }
                 }
