@@ -22,6 +22,7 @@ import com.gigmiles.app.location.DriveLocationTracker
 import com.google.android.gms.location.LocationServices
 
 enum class DeliveryApp { SPARK, DOORDASH }
+private enum class AppTab { TRACK, MAP, HISTORY, EXPENSES }
 
 data class Earnings(
     val basePay: String = "", val tips: String = "", val boost: String = "",
@@ -42,6 +43,7 @@ fun GigMilesScreen() {
     val viewModel: GigMilesViewModel = viewModel()
     val savedDrives by viewModel.drives.collectAsState()
     var selectedApp by remember { mutableStateOf(DeliveryApp.SPARK) }
+    var activeTab by remember { mutableStateOf(AppTab.TRACK) }
     var tracking by remember { mutableStateOf(false) }
     var showMap by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
@@ -64,7 +66,18 @@ fun GigMilesScreen() {
     }
 
     MaterialTheme {
-        Scaffold(topBar = { TopAppBar(title = { Text("GigMiles") }) }) { padding ->
+        Scaffold(
+            topBar = { TopAppBar(title = { Text("GigMiles") }) },
+            bottomBar = {
+                NavigationBar {
+                    NavigationBarItem(activeTab == AppTab.TRACK, { activeTab = AppTab.TRACK }, label = { Text("Track") }, icon = { Text("▶") })
+                    NavigationBarItem(activeTab == AppTab.MAP, { activeTab = AppTab.MAP }, label = { Text("Map") }, icon = { Text("⌖") })
+                    NavigationBarItem(activeTab == AppTab.HISTORY, { activeTab = AppTab.HISTORY }, label = { Text("History") }, icon = { Text("☷") })
+                    NavigationBarItem(activeTab == AppTab.EXPENSES, { activeTab = AppTab.EXPENSES }, label = { Text("Expenses") }, icon = { Text("$") })
+                }
+            }
+        ) { padding ->
+            if (activeTab == AppTab.TRACK) {
             Column(Modifier.padding(padding).padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("GigMiles", style = MaterialTheme.typography.headlineLarge)
                 Text("Your delivery mileage and earnings", style = MaterialTheme.typography.bodyMedium)
@@ -138,6 +151,14 @@ fun GigMilesScreen() {
                 }
                 Text("Saved drives: ${savedDrives.size}", style = MaterialTheme.typography.bodySmall)
             }
+            } else {
+                when (activeTab) {
+                    AppTab.MAP -> MapScreen(Modifier.padding(padding).fillMaxSize())
+                    AppTab.HISTORY -> HistoryTab(savedDrives, Modifier.padding(padding))
+                    AppTab.EXPENSES -> ExpensesTab(Modifier.padding(padding))
+                    AppTab.TRACK -> Unit
+                }
+            }
         }
     }
 }
@@ -165,6 +186,33 @@ private fun SummaryCard(app: String, miles: Double, pay: Double, modifier: Modif
 
 private fun DriveRecord.totalPay(): Double =
     basePay + customerTips + boost + incentives + appPay
+
+@Composable
+private fun HistoryTab(drives: List<DriveRecord>, modifier: Modifier = Modifier) {
+    Column(modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Drive history", style = MaterialTheme.typography.headlineSmall)
+        if (drives.isEmpty()) Text("Your saved drives will appear here.")
+        drives.forEach { drive ->
+            Card(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(drive.app)
+                    Text("${"%.2f".format(drive.miles)} mi  $${"%.2f".format(drive.totalPay())}")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpensesTab(modifier: Modifier = Modifier) {
+    Column(modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Expenses", style = MaterialTheme.typography.headlineSmall)
+        Text("Track your phone bill and other delivery-business expenses here.")
+        Button(onClick = { /* Expense form next */ }, modifier = Modifier.fillMaxWidth()) {
+            Text("Add expense")
+        }
+    }
+}
 
 @Composable
 private fun MoneyField(label: String, onValueChange: (String) -> Unit) {
