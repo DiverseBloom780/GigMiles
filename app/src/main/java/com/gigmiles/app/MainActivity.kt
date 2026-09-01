@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -63,13 +65,18 @@ fun GigMilesScreen() {
 
     MaterialTheme {
         Scaffold(topBar = { TopAppBar(title = { Text("GigMiles") }) }) { padding ->
-            Column(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Track a drive", style = MaterialTheme.typography.headlineSmall)
+            Column(Modifier.padding(padding).padding(20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("GigMiles", style = MaterialTheme.typography.headlineLarge)
+                Text("Your delivery mileage and earnings", style = MaterialTheme.typography.bodyMedium)
+                HorizontalDivider()
+                Text("Totals", style = MaterialTheme.typography.titleLarge)
                 OutlinedButton(onClick = { showMap = !showMap }, modifier = Modifier.fillMaxWidth()) {
                     Text(if (showMap) "Hide Map" else "Show Map")
                 }
                 if (showMap) MapScreen(Modifier.fillMaxWidth().height(240.dp))
                 SummaryRow(savedDrives)
+                HorizontalDivider()
+                Text("New drive", style = MaterialTheme.typography.titleLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selectedApp == DeliveryApp.SPARK, { selectedApp = DeliveryApp.SPARK }, label = { Text("Spark") })
                     FilterChip(selectedApp == DeliveryApp.DOORDASH, { selectedApp = DeliveryApp.DOORDASH }, label = { Text("DoorDash") })
@@ -96,6 +103,7 @@ fun GigMilesScreen() {
                 }
                 if (tracking) Text("GPS miles: ${"%.2f".format(liveMiles)}")
                 if (!tracking) {
+                    Text("Earnings", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(miles, { miles = it }, label = { Text("Miles driven") }, modifier = Modifier.fillMaxWidth())
                     if (selectedApp == DeliveryApp.SPARK) {
                         MoneyField("Spark base pay") { earnings = earnings.copy(basePay = it) }
