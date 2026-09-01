@@ -41,6 +41,7 @@ fun GigMilesScreen() {
     val savedDrives by viewModel.drives.collectAsState()
     var selectedApp by remember { mutableStateOf(DeliveryApp.SPARK) }
     var tracking by remember { mutableStateOf(false) }
+    var showMap by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
     var liveMiles by remember { mutableDoubleStateOf(0.0) }
     var miles by remember { mutableStateOf("0.0") }
@@ -64,6 +65,10 @@ fun GigMilesScreen() {
         Scaffold(topBar = { TopAppBar(title = { Text("GigMiles") }) }) { padding ->
             Column(Modifier.padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Track a drive", style = MaterialTheme.typography.headlineSmall)
+                OutlinedButton(onClick = { showMap = !showMap }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (showMap) "Hide Map" else "Show Map")
+                }
+                if (showMap) MapScreen(Modifier.fillMaxWidth().height(240.dp))
                 SummaryRow(savedDrives)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selectedApp == DeliveryApp.SPARK, { selectedApp = DeliveryApp.SPARK }, label = { Text("Spark") })
