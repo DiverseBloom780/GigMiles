@@ -11,3 +11,4 @@ Android app for tracking DoorDash and Spark delivery miles, income, and business
 - Historical work will support bulk totals rather than requiring one record per trip.
 - Phone bills and other expenses will be recorded with business-use percentages.
 - Tax exports will include CSV and a human-readable summary report.
+- Maps will use the open-source MapLibre Android SDK with a replaceable OpenStreetMap-compatible tile source.
