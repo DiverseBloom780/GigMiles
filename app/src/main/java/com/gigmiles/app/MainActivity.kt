@@ -1,6 +1,7 @@
 package com.gigmiles.app
 
 import android.Manifest
+import android.location.Location
 import android.os.Bundle
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
@@ -19,6 +20,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import com.gigmiles.app.data.DriveRecord
 import com.gigmiles.app.location.DriveLocationTracker
+import com.gigmiles.app.navigation.NavigationInstruction
+import com.gigmiles.app.navigation.OpenNavigationClient
 import com.google.android.gms.location.LocationServices
 
 enum class DeliveryApp { SPARK, DOORDASH }
@@ -49,11 +52,18 @@ fun GigMilesScreen() {
     var showMap by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
     var liveMiles by remember { mutableDoubleStateOf(0.0) }
+    var currentLocation by remember { mutableStateOf<Location?>(null) }
+    var instructions by remember { mutableStateOf<List<NavigationInstruction>>(emptyList()) }
     var miles by remember { mutableStateOf("0.0") }
     var earnings by remember { mutableStateOf(Earnings()) }
     val locationTracker = remember {
-        DriveLocationTracker(LocationServices.getFusedLocationProviderClient(context)) { liveMiles = it }
+        DriveLocationTracker(
+            LocationServices.getFusedLocationProviderClient(context),
+            { liveMiles = it },
+            { currentLocation = it }
+        )
     }
+    val navigationClient = remember { OpenNavigationClient() }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -63,6 +73,17 @@ fun GigMilesScreen() {
             liveMiles = 0.0
             locationTracker.start()
             tracking = true
+        }
+    }
+    LaunchedEffect(tracking, currentLocation != null, destination) {
+        if (tracking && currentLocation != null && destination.isNotBlank()) {
+            val resolved = navigationClient.geocode(destination)
+            val origin = currentLocation
+            if (resolved?.latitude != null && resolved.longitude != null && origin != null) {
+                instructions = navigationClient.route(origin.latitude, origin.longitude, resolved)
+            }
+        } else if (!tracking) {
+            instructions = emptyList()
         }
     }
 
@@ -124,6 +145,15 @@ fun GigMilesScreen() {
                     Text(if (tracking) "End Drive" else "Start Navigation")
                 }
                 if (tracking) Text("GPS miles: ${"%.2f".format(liveMiles)}")
+                if (tracking && instructions.isNotEmpty()) {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Next turn", style = MaterialTheme.typography.labelLarge)
+                            Text(instructions.first().text, style = MaterialTheme.typography.titleMedium)
+                            Text("${"%.2f".format(instructions.first().distanceMeters)} mi")
+                        }
+                    }
+                }
                 if (!tracking) {
                     Text("Earnings", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(miles, { miles = it }, label = { Text("Miles driven") }, modifier = Modifier.fillMaxWidth())

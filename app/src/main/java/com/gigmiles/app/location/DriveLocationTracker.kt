@@ -11,7 +11,8 @@ import com.google.android.gms.location.Priority
 
 class DriveLocationTracker(
     private val client: FusedLocationProviderClient,
-    private val onMilesUpdated: (Double) -> Unit
+    private val onMilesUpdated: (Double) -> Unit,
+    private val onLocationUpdated: (Location) -> Unit
 ) {
     private var lastLocation: Location? = null
     var miles: Double = 0.0
@@ -20,6 +21,7 @@ class DriveLocationTracker(
     private val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             result.locations.forEach { location ->
+                onLocationUpdated(location)
                 lastLocation?.let { previous ->
                     val distanceMeters = previous.distanceTo(location).toDouble()
                     if (distanceMeters >= 5.0) {
