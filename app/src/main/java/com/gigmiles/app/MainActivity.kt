@@ -1,7 +1,6 @@
 package com.gigmiles.app
 
 import android.Manifest
-import android.location.Location
 import android.os.Bundle
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
@@ -20,12 +19,10 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import com.gigmiles.app.data.DriveRecord
 import com.gigmiles.app.location.DriveLocationTracker
-import com.gigmiles.app.navigation.NavigationInstruction
-import com.gigmiles.app.navigation.OpenNavigationClient
 import com.google.android.gms.location.LocationServices
 
 enum class DeliveryApp { SPARK, DOORDASH }
-private enum class AppTab { TRACK, MAP, HISTORY, EXPENSES }
+private enum class AppTab { TRACK, HISTORY, EXPENSES }
 
 data class Earnings(
     val basePay: String = "", val tips: String = "", val boost: String = "",
@@ -47,23 +44,18 @@ fun GigMilesScreen() {
     val savedDrives by viewModel.drives.collectAsState()
     var selectedApp by remember { mutableStateOf(DeliveryApp.SPARK) }
     var activeTab by remember { mutableStateOf(AppTab.TRACK) }
-    var destination by remember { mutableStateOf("") }
     var tracking by remember { mutableStateOf(false) }
-    var showMap by remember { mutableStateOf(false) }
     var startedAt by remember { mutableLongStateOf(0L) }
     var liveMiles by remember { mutableDoubleStateOf(0.0) }
-    var currentLocation by remember { mutableStateOf<Location?>(null) }
-    var instructions by remember { mutableStateOf<List<NavigationInstruction>>(emptyList()) }
     var miles by remember { mutableStateOf("0.0") }
     var earnings by remember { mutableStateOf(Earnings()) }
     val locationTracker = remember {
         DriveLocationTracker(
             LocationServices.getFusedLocationProviderClient(context),
             { liveMiles = it },
-            { currentLocation = it }
+            { }
         )
     }
-    val navigationClient = remember { OpenNavigationClient() }
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -75,25 +67,12 @@ fun GigMilesScreen() {
             tracking = true
         }
     }
-    LaunchedEffect(tracking, currentLocation != null, destination) {
-        if (tracking && currentLocation != null && destination.isNotBlank()) {
-            val resolved = navigationClient.geocode(destination)
-            val origin = currentLocation
-            if (resolved?.latitude != null && resolved.longitude != null && origin != null) {
-                instructions = navigationClient.route(origin.latitude, origin.longitude, resolved)
-            }
-        } else if (!tracking) {
-            instructions = emptyList()
-        }
-    }
-
     MaterialTheme {
         Scaffold(
             topBar = { TopAppBar(title = { Text("GigMiles") }) },
             bottomBar = {
                 NavigationBar {
                     NavigationBarItem(activeTab == AppTab.TRACK, { activeTab = AppTab.TRACK }, label = { Text("Track") }, icon = { Text("▶") })
-                    NavigationBarItem(activeTab == AppTab.MAP, { activeTab = AppTab.MAP }, label = { Text("Map") }, icon = { Text("⌖") })
                     NavigationBarItem(activeTab == AppTab.HISTORY, { activeTab = AppTab.HISTORY }, label = { Text("History") }, icon = { Text("☷") })
                     NavigationBarItem(activeTab == AppTab.EXPENSES, { activeTab = AppTab.EXPENSES }, label = { Text("Expenses") }, icon = { Text("$") })
                 }
@@ -105,21 +84,9 @@ fun GigMilesScreen() {
                 Text("Your delivery mileage and earnings", style = MaterialTheme.typography.bodyMedium)
                 HorizontalDivider()
                 Text("Totals", style = MaterialTheme.typography.titleLarge)
-                OutlinedButton(onClick = { showMap = !showMap }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (showMap) "Hide Map" else "Show Map")
-                }
-                if (showMap) MapScreen(Modifier.fillMaxWidth().height(240.dp))
                 SummaryRow(savedDrives)
                 HorizontalDivider()
                 Text("New drive", style = MaterialTheme.typography.titleLarge)
-                OutlinedTextField(
-                    value = destination,
-                    onValueChange = { destination = it },
-                    label = { Text("Delivery address") },
-                    placeholder = { Text("Enter or paste destination") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selectedApp == DeliveryApp.SPARK, { selectedApp = DeliveryApp.SPARK }, label = { Text("Spark") })
                     FilterChip(selectedApp == DeliveryApp.DOORDASH, { selectedApp = DeliveryApp.DOORDASH }, label = { Text("DoorDash") })
@@ -141,19 +108,10 @@ fun GigMilesScreen() {
                             locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                         }
                     }
-                }, enabled = tracking || destination.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text(if (tracking) "End Drive" else "Start Navigation")
+                }, enabled = true, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (tracking) "End Drive" else "Start Drive")
                 }
                 if (tracking) Text("GPS miles: ${"%.2f".format(liveMiles)}")
-                if (tracking && instructions.isNotEmpty()) {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("Next turn", style = MaterialTheme.typography.labelLarge)
-                            Text(instructions.first().text, style = MaterialTheme.typography.titleMedium)
-                            Text("${"%.2f".format(instructions.first().distanceMeters)} mi")
-                        }
-                    }
-                }
                 if (!tracking) {
                     Text("Earnings", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(miles, { miles = it }, label = { Text("Miles driven") }, modifier = Modifier.fillMaxWidth())
@@ -183,9 +141,8 @@ fun GigMilesScreen() {
                         )
                         miles = "0.0"
                         earnings = Earnings()
-                        destination = ""
                         startedAt = 0L
-                    }, enabled = startedAt != 0L && destination.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                    }, enabled = startedAt != 0L, modifier = Modifier.fillMaxWidth()) {
                         Text("Save Drive")
                     }
                 }
@@ -193,7 +150,6 @@ fun GigMilesScreen() {
             }
             } else {
                 when (activeTab) {
-                    AppTab.MAP -> MapScreen(Modifier.padding(padding).fillMaxSize())
                     AppTab.HISTORY -> HistoryTab(savedDrives, Modifier.padding(padding))
                     AppTab.EXPENSES -> ExpensesTab(Modifier.padding(padding))
                     AppTab.TRACK -> Unit
